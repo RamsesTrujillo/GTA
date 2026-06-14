@@ -18,6 +18,15 @@
             color: white; font-size: 24px; font-family: sans-serif; z-index: 100;
         }
     </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 </head>
 <body>
     <div id="loading-screen">Cargando modelo humano... (Buscando ./personaje.glb)</div>
@@ -29,17 +38,16 @@
     </div>
 
     <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-        import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-        // Importamos los controles de órbita para manejar el ratón
-        import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        // Gracias al mapa de arriba, ahora podemos importar como profesionales
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         let scene, camera, renderer, player, clock, controls;
         const keys = { w: false, a: false, s: false, d: false };
         const playerSpeed = 0.1;
         const loadingScreen = document.getElementById('loading-screen');
 
-        // Vectores auxiliares para el cálculo de movimiento direccional
         const walkDirection = new THREE.Vector3();
         const rotateAngle = new THREE.Vector3(0, 1, 0);
         const rotateQuarternion = new THREE.Quaternion();
@@ -50,7 +58,7 @@
         function init() {
             clock = new THREE.Clock();
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+            scene.background = new THREE.Color(0x87CEEB);
             scene.fog = new THREE.Fog(0x87CEEB, 15, 60);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -61,14 +69,12 @@
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Sistema de Cámara Libre (Ratón)
             controls = new OrbitControls(camera, renderer.domElement);
-            controls.enablePan = false; // Bloqueamos el paneo para que siempre siga al jugador
-            controls.minDistance = 2;   // Zoom máximo
-            controls.maxDistance = 10;  // Zoom mínimo
-            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Evita que la cámara pase por debajo del suelo
+            controls.enablePan = false;
+            controls.minDistance = 2;
+            controls.maxDistance = 10;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
-            // Iluminación
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
             hemiLight.position.set(0, 20, 0);
             scene.add(hemiLight);
@@ -82,7 +88,6 @@
             dirLight.shadow.camera.right = 15;
             scene.add(dirLight);
 
-            // Suelo
             const mesh = new THREE.Mesh(
                 new THREE.PlaneGeometry(200, 200),
                 new THREE.MeshPhongMaterial({ color: 0x555555, depthWrite: false })
@@ -96,7 +101,6 @@
             grid.material.transparent = true;
             scene.add(grid);
 
-            // Cargador del modelo (Ruta relativa directa para GitHub Pages)
             const loader = new GLTFLoader();
             loader.load('./personaje.glb', function (gltf) {
                 player = gltf.scene;
@@ -105,7 +109,6 @@
                     if (object.isMesh) object.castShadow = true;
                 });
 
-                // Posición inicial de la cámara relativa al personaje
                 camera.position.set(0, 3, 6);
                 scene.add(player);
                 
@@ -117,7 +120,6 @@
                 loadingScreen.innerHTML = "Error: No se pudo cargar './personaje.glb'.";
             });
 
-            // Controles de teclado
             window.addEventListener('keydown', (e) => { const key = e.key.toLowerCase(); if (keys.hasOwnProperty(key)) keys[key] = true; });
             window.addEventListener('keyup', (e) => { const key = e.key.toLowerCase(); if (keys.hasOwnProperty(key)) keys[key] = false; });
             window.addEventListener('resize', onWindowResize);
@@ -129,7 +131,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Obtiene la dirección hacia la que mira la cámara en el plano horizontal (X, Z)
         function getForwardVector() {
             camera.getWorldDirection(walkDirection);
             walkDirection.y = 0;
@@ -137,7 +138,6 @@
             return walkDirection;
         }
 
-        // Obtiene la dirección lateral a la cámara
         function getSideVector() {
             camera.getWorldDirection(walkDirection);
             walkDirection.y = 0;
@@ -153,32 +153,27 @@
                 let moveX = 0;
                 let moveZ = 0;
 
-                if (keys.w) moveZ = 1; // Adelante
-                if (keys.s) moveZ = -1; // Atrás
-                if (keys.a) moveX = -1; // Izquierda
-                if (keys.d) moveX = 1; // Derecha
+                if (keys.w) moveZ = 1;
+                if (keys.s) moveZ = -1;
+                if (keys.a) moveX = -1;
+                if (keys.d) moveX = 1;
 
                 if (moveX !== 0 || moveZ !== 0) {
-                    // Calculamos los vectores de dirección relativos a la cámara
                     const forward = getForwardVector().multiplyScalar(moveZ);
                     const right = getSideVector().multiplyScalar(moveX);
                     
-                    // Combinamos los vectores para obtener la dirección final
                     const direction = new THREE.Vector3().addVectors(forward, right).normalize();
 
-                    // Aplicamos el movimiento al personaje
                     player.position.add(direction.multiplyScalar(playerSpeed));
 
-                    // Rotamos el cuerpo del personaje para que mire hacia donde camina
                     const angle = Math.atan2(direction.x, direction.z);
                     rotateQuarternion.setFromAxisAngle(rotateAngle, angle);
-                    player.quaternion.rotateTowards(rotateQuarternion, 0.2); // Rotación suave
+                    player.quaternion.rotateTowards(rotateQuarternion, 0.2);
                 }
 
-                // El objetivo de la cámara sigue al jugador (apuntando al pecho/cabeza)
                 cameraTarget.set(player.position.x, player.position.y + 1.5, player.position.z);
                 controls.target.copy(cameraTarget);
-                controls.update(); // Necesario llamar en cada frame cuando se mueve el target
+                controls.update();
             }
 
             renderer.render(scene, camera);
